@@ -1,0 +1,149 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: daily-exchange-rates-dev-deployment
+  namespace: dailyexrates-8079-dev-01
+  labels:
+    app: daily-exchange-rates-dev-app
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: daily-exchange-rates-dev-app
+  template:
+    metadata:
+      labels:
+        app: daily-exchange-rates-dev-app
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: daily-exchange-rates-dev-app
+        image: gcr.io/p-pm-do-8079/bloomberg-exchange-service:843441
+        imagePullPolicy: Always
+        env:      
+          - name: SPRING_PROFILE
+            value: dev
+          - name: SPRING_APPLICATION_JSON
+            valueFrom:
+              configMapKeyRef:
+                name: spring-config
+                key: dev-config.json
+          - name: ELK_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: datasource-credentials
+                key: elkusername
+          - name: ELK_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: datasource-credentials
+                key: elkpassword
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        readinessProbe:
+          httpGet:
+            path: /healthcheck
+            port: 8080
+          initialDelaySeconds: 15
+          timeoutSeconds: 2
+          periodSeconds: 3
+          failureThreshold: 2
+        livenessProbe:
+          httpGet:
+            path: /healthcheck
+            port: 8080
+          initialDelaySeconds: 15
+          timeoutSeconds: 2
+          periodSeconds: 3
+          failureThreshold: 1
+        resources:
+          limits:
+            memory: 2Gi
+            cpu: 2
+          requests:
+            memory: 1Gi
+            cpu: 1
+      imagePullSecrets:
+      - name: gcr-json-key
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      tolerations:
+      - key: com.docker.ucp.manager
+        operator: Exists
+  
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: daily-exchange-rates-dev-service
+  namespace: dailyexrates-8079-dev-01
+spec:
+  selector:
+    app: daily-exchange-rates-dev-app
+  ports:
+    - name: https
+      port: 443
+      protocol: TCP
+      targetPort: 8080
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: daily-exchange-rates-dev-gateway
+  namespace: dailyexrates-8079-dev-01
+spec:
+  gateways:
+  - daily-exchange-rates-dev-gateway
+  hosts:
+  - facade.apigateway.evq.slb.com
+  http:
+  - match:
+    - uri:
+        exact: /api/exchange
+    - uri:
+        prefix: /api/exchange/
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: daily-exchange-rates-dev-service
+        port:
+          number: 443
+---
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: daily-exchange-rates-dev-gateway
+  namespace: dailyexrates-8079-dev-01
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - hosts:
+    - facade.apigateway.evq.slb.com
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
+    tls:
+      httpsRedirect: true
+  - hosts:
+    - facade.apigateway.evq.slb.com
+    port:
+      name: https
+      number: 443
+      protocol: HTTPS
+    tls:
+      credentialName: slb-facade-apigateway-qa-tls
+      mode: SIMPLE 
+

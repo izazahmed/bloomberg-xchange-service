@@ -1,0 +1,45 @@
+pool:
+  name: bso-docker
+ 
+ 
+#Build the container image using Dockerfile, Tag the Image and Push the Image to DTR
+steps:
+- task: Maven@3
+  displayName: ' Maven package '
+  inputs:
+    options: 'clean package'
+    publishJUnitResults: false
+ 
+
+# PROD :: Goolge Container Registry 
+- task: Docker@2
+  displayName: 'Build image'
+  enabled: true
+  inputs:
+    containerRegistry: 'gcr-service-connection'
+    repository: 'p-pm-do-8079/bloomberg-exchange-service'
+    Dockerfile: Dockerfile
+    tags: $(build.buildid)
+
+#Replace BuildNumber with required build number in deploymente.yaml file
+- bash: 'bash -c "sed -i ''''s/DYNAMIC-TAG-NAME/$(build.buildid)/g'''' deployment/k8s-deployment-qa.yaml"'
+  displayName: 'Bash - Update Image Tag in QA'
+
+#Replace BuildNumber with required build number in deploymente.yaml file
+- bash: 'bash -c "sed -i ''''s/DYNAMIC-TAG-NAME/$(build.buildid)/g'''' deployment/k8s-deployment-prod.yaml"'
+  displayName: 'Bash - Update Image Tag for PROD'
+ 
+- task: CopyFiles@2
+  inputs:
+    SourceFolder: '$(system.defaultworkingdirectory)'
+    Contents: |
+      deployment/GKE-k8s-qa-deployment.yaml
+      deployment/GKE-k8s-prod-scheduler.yml
+    TargetFolder: '$(build.artifactstagingdirectory)'
+    CleanTargetFolder: true
+
+#Publish deployment.yaml as an artifiact
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish Artifact'
+  inputs:
+    PathtoPublish: '$(build.artifactstagingdirectory)'

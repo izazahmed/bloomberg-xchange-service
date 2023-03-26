@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spring-config
+data:
+  dev-config.json:
+    '{
+        "sims.datasource.ELK_URL": "10.196.136.2",
+        "sims.datasource.ELK_PORT": "10515"  
+     }'

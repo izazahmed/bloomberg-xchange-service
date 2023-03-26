@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: daily-exchange-rates-qa-deployment
+  namespace: dailyexrates-8079-dev-01
+  labels:
+    app: daily-exchange-rates-qa-app
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 2
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: daily-exchange-rates-qa-app
+  template:
+    metadata:
+      labels:
+        app: daily-exchange-rates-qa-app
+    spec:
+      containers:
+      - name: daily-exchange-rates-qa-app
+        image: gcr.io/p-pm-do-8079/bloomberg-exchange-service:DYNAMIC-TAG-NAME
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        readinessProbe:
+          httpGet:
+            path: /healthcheck
+            port: 8080
+          initialDelaySeconds: 15
+          timeoutSeconds: 2
+          periodSeconds: 3
+          failureThreshold: 2
+        livenessProbe:
+          httpGet:
+            path: /healthcheck
+            port: 8080
+          initialDelaySeconds: 15
+          timeoutSeconds: 2
+          periodSeconds: 3
+          failureThreshold: 1
+        resources:
+          limits:
+            memory: 2Gi
+            cpu: 2
+          requests:
+            memory: 1Gi
+            cpu: 1
+      imagePullSecrets:
+      - name: gcr-json-key
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      tolerations:
+      - key: com.docker.ucp.manager
+        operator: Exists
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: daily-exchange-rates-qa-service
+  namespace: dailyexrates-8079-dev-01
+spec:
+  selector:
+    app: daily-exchange-rates-qa-app
+  ports:
+    - name: https
+      port: 443
+      protocol: TCP
+      targetPort: 8080
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    kubernetes.io/tls-acme: 'true'
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+  generation: 1
+  name: daily-exchange-rates-qa-ingress-rule
+  namespace: dailyexrates-8079-dev-01
+spec:
+  tls:
+    - hosts:
+        - facade.apigateway.evq.slb.com
+      secretName: slb-facade-apigateway-qa-tls
+  rules:
+  - host: facade.apigateway.evq.slb.com
+    http:
+      paths:
+      - backend:
+          serviceName: daily-exchange-rates-qa-service
+          servicePort: 443
+        path: /api/exchange/(.*)

@@ -1,0 +1,27 @@
+sims:
+  datasource:
+    elkurl: x.x.x.x
+    elkport: xxx
+    elkusername: xxxxx
+    elkpassword: yyyyy
+logging:
+  level:
+    org.elasticsearch.client.sniff.ElasticsearchNodesSniffer: ERROR
+ 
+---
+spring:
+  config:
+    activate:
+      on-profile: dev 
+  datasource:
+    url: ${sims.datasource.ELK_URL}
+    username: ${ELK_USERNAME}
+    password: ${ELK_PASSWORD}
+logging:
+  level:
+    org.elasticsearch.client.sniff.ElasticsearchNodesSniffer: ERROR
+ 
+ 
+ 
+
+

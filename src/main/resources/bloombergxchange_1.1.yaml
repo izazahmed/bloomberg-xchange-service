@@ -1,0 +1,152 @@
+swagger: '2.0'
+info:
+    description: 'Financial Instrument Quote API with Daily Exchange Rates'
+    version: 1.0.0
+    title: ExchangeRate
+    contact:
+        name: 'API Team'
+        email: apigateway-support@slb.com
+    license:
+        name: '(c) Copyright Schlumberger, unpublished work, created 11/12/2019'
+host: apigateway.evq.it.slb.com
+basePath: /market-to-cash/exchange-rate
+tags:
+    -
+        name: 'Exchange Rate'
+        description: 'API covers quotes for Financial Instruments'
+    -
+        name: currencies
+        description: 'API to get list of supported currencies '
+schemes:
+    - https
+security:
+    -
+        APIKeyHeader: []
+externalDocs:
+    description: 'Find out more on the SLB WIKI'
+    url: 'https://wiki.slb.com/'
+paths:
+    /exchangerate:
+        get:
+            tags: ['Exchange Rate']
+            summary: 'exchange rate service for currencies'
+            operationId: exchangerate
+            produces: [application/json]
+            parameters: [{$ref: '#/parameters/tickerSymbolQuery'}, {$ref: '#/parameters/uniqueIdentifierTypeQuery'}, {$ref: '#/parameters/uniqueIdentifierCodeQuery'}, {$ref: '#/parameters/rateSourceQuery'}, {$ref: '#/parameters/rateDateQuery'}, {$ref: '#/parameters/priceTypeQuery'}]
+            responses: {'200': {description: 'successful operation', schema: {$ref: '#/definitions/ExchangeRate'}}, '400': {description: 'Invalid Ticker symbol or Unique Identification Type Code and Type supplied'}}
+    /currencies:
+        get:
+            tags: [currencies]
+            summary: 'API to get list of supported currencies'
+            operationId: getCurrencies
+            produces: [application/json]
+            responses:
+              '200':
+                description: OK
+                schema:
+                  type: array
+                  items:
+                    $ref: '#/definitions/Currency'
+    /exchangerates:
+        get:
+            tags: ['Exchange Rate']
+            summary: 'API to retrieve exchange rate service for currencies by given date with pagination'
+            operationId: getExchangeRatesByDateUsingGET
+            produces: [application/json]
+            parameters: [{$ref: '#/parameters/pageNumberQuery'}, {$ref: '#/parameters/rateDateQuery'}]
+            responses: {'200': {description: OK, schema: {$ref: '#/definitions/ExchangeRatesResponse'}}, '401': {description: Unauthorized}, '404': {description: 'Not Found', schema: {$ref: '#/definitions/Error404Response'}}}
+            deprecated: false
+securityDefinitions:
+    APIKeyHeader:
+        type: apiKey
+        name: x-apikey
+        in: header
+parameters:
+    tickerSymbolQuery:
+        name: ticker-symbol
+        in: query
+        description: 'A ticker symbol is an arrangement of characters. Usually letters. Representing particular currencies. We can use it beyond just currencies. Eg. USDCOP.'
+        required: false
+        type: array
+        items:
+          type: string
+        collectionFormat: multi
+    uniqueIdentifierTypeQuery:
+        name: unique-identifier-type
+        in: query
+        description: 'Unique identification code used to identify security exchange. Eg. FIGI'
+        required: false
+        type: string
+    uniqueIdentifierCodeQuery:
+        name: unique-identifier-code
+        in: query
+        description: 'Unique identifier that identifies currencies as well as individual exchanges on which they trade. It is a 15-character alpha-numerical code that serves for uniform unique global identification. Eg. BBG0013HS3L6'
+        required: false
+        type: string
+    rateSourceQuery:
+        name: rate-source
+        in: query
+        description: 'Source of the rate e.g. central bank, private banks, CITI, JP Morgan etc. Eg. TRM'
+        required: false
+        type: string
+    rateDateQuery:
+        name: rate-date
+        in: query
+        description: 'This is used to retrieve the rates for a date in the past, i.e. historical rates (maximum of 12 months). It is not required for the current date''s rate. Date format should be MM/dd/yyyy. The Bloomberg time zone is GMT. E.g. 10/22/2019'
+        required: false
+        type: string
+    priceTypeQuery:
+        name: price-type
+        in: query
+        description: 'Type of daily exchange rate e.g. Daily sale, Daily buy, Daily average etc. Eg. ASK'
+        required: false
+        type: string
+        enum:
+            - ASK
+            - BID
+            - HIGH
+            - LOW
+            - LAST
+            - '*'
+    pageNumberQuery:
+        name: page-number
+        in: query
+        description: 'page number'
+        required: false
+        type: integer
+        format: int32
+definitions:
+    ExchangeRate:
+        type: object
+        properties:
+            tickerSymbol: {type: string, example: USDCOP}
+            uniqueIdentifierType: {type: string, example: FIGI}
+            uniqueIdentifierCode: {type: string, example: BBG0013HS3L6}
+            rateSource: {type: string, example: TRM}
+            rateDate: {type: string, example: 10/1/2019}
+            rateTime: {type: string, example: 'HH:MM:SS sss'}
+            askRate: {type: number, description: 'ASK rate is the one at which seller is willing to sell', example: '3.3295'}
+            bidRate: {type: number, description: 'BID rate is the one at which buyer is willing to buy', example: '3.3295'}
+            highRate: {type: number, description: 'HIGH rate is the maximum value from the beginning of the day to the time when the call is triggered', example: '3.3295'}
+            lowRate: {type: number, description: 'LOW rate is the minimum value from the beginning of the day to the time when the call is triggered', example: '3.3295'}
+            lastRate: {type: number, description: 'LAST rate is the rate at which last trade occurred.', example: '3.3295'}
+    Currency:
+      type: object
+      properties:
+        currency: {type: string, example: AEDUSD}
+        id: {type: integer,   format: int32}
+      title: Currency
+    ExchangeRatesResponse:
+        type: object
+        properties:
+            exchangeRates: {type: array, items: {$ref: '#/definitions/ExchangeRate'}}
+            pageCount: {type: integer, format: int32}
+            pageNum: {type: integer, format: int32}
+        title: ExchangeRatesResponse
+    Error404Response:
+        type: object
+        properties:
+            errorCode: {type: integer, example: 404}
+            errorMessage: {type: string, example: 'No records found'}
+            requestedURI: {type: string, example: '/exchangerates?page-number=7'}
+
